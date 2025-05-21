@@ -41,7 +41,7 @@ func inputProcess(r io.Reader) (result Result) {
 
 	for {
 		in, size, err := reader.ReadRune()	// Reads a single rune
-		if err == io.EOF {			// Check if for End Of File
+		if err == io.EOF {					// Check if for End Of File
 			break
 		}
 		if err != nil {
@@ -50,7 +50,7 @@ func inputProcess(r io.Reader) (result Result) {
 			break
 		}
 
-		if in == '\n' {				// Newline count
+		if in == '\n' {						// Newline count
 			result.lineCount++
 		}
 
@@ -58,11 +58,11 @@ func inputProcess(r io.Reader) (result Result) {
 			inWord = false
 		} else if !inWord {
 			inWord = true
-			result.wordCount++		// Word count
+			result.wordCount++				// Word count
 		}
 
-		result.charCount++			// Char count
-		result.byteCount += size		// Byte count
+		result.charCount++					// Char count
+		result.byteCount += size			// Byte count
 	}
 	return
 }
@@ -100,34 +100,34 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 
-	ch := make(chan Result)			// Channel
-	var wg sync.WaitGroup			// Waitgroup for goroutine
+	ch := make(chan Result) 			// Channel
+	var wg sync.WaitGroup				// Waitgroup for goroutine
 
-	if len(args) == 0 {			// Stdin input
-		wg.Add(1)			// Wait for 1 goroutine
+	if len(args) == 0 {					// Stdin input
+		wg.Add(1)						// Wait for 1 goroutine
 		go func(ch chan Result) {
-			defer wg.Done()	 	// goroutine is finised
+			defer wg.Done()	 			// goroutine is finised
 			r := inputProcess(os.Stdin)
 			r.filename = "os.Stdin"
 			ch <- r
 		}(ch)
-	} else {				// File input
+	} else {							 // File input
 		for _, filename := range args {
-			tokens <- struct{}{}	// Acquire token
+			tokens <- struct{}{}		 // Acquire token
 			f, err := os.Open(filename)
 			if err != nil {
 				log.Println(err)
-				<-tokens	// Release token
+				<-tokens				 // Release token
 				continue
 			}
-			wg.Add(1)		// Wait for 1 goroutine
+			wg.Add(1)					 // Wait for 1 goroutine
 			go func(f *os.File, filename string, ch chan Result) {
-				defer f.Close()
-				defer wg.Done()	 // goroutine is finised
+				defer f.Close()			 // Close file
+				defer wg.Done()			 // goroutine is finised
 				r := inputProcess(f)
 				r.filename = filename
-				ch <- r		// Send data to channel
-				<-tokens	// Release token
+				ch <- r					 // Send data to channel
+				<-tokens				 // Release token
 			}(f, filename, ch)
 		}
 	}

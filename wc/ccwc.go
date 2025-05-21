@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode"
 )
 
@@ -39,8 +40,8 @@ func inputProcess(r io.Reader) (result Result) {
 	inWord := false
 
 	for {
-		in, size, err := reader.ReadRune()
-		if err == io.EOF {
+		in, size, err := reader.ReadRune()	// Reads a single rune
+		if err == io.EOF {	// Check if for End Of File
 			break
 		}
 		if err != nil {
@@ -49,7 +50,7 @@ func inputProcess(r io.Reader) (result Result) {
 			break
 		}
 
-		if in == '\n' {
+		if in == '\n' {		// Newline count
 			result.lineCount++
 		}
 
@@ -57,11 +58,11 @@ func inputProcess(r io.Reader) (result Result) {
 			inWord = false
 		} else if !inWord {
 			inWord = true
-			result.wordCount++
+			result.wordCount++		// Word count
 		}
 
-		result.charCount++
-		result.byteCount += size
+		result.charCount++		// Char count
+		result.byteCount += size	// Byte count
 	}
 	return
 }
@@ -101,32 +102,34 @@ func main() {
 
 	// Channel
 	ch := make(chan Result)
-	var channel int = 0
+	var wg sync.WaitGroup
 
 	// Pipeline and file input
 	if len(args) == 0 {
-		channel = 1
+		wg.Add(1)	// Wait for 1 goroutine
 		go func(ch chan Result) {
+			defer wg.Done()	 // goroutine is finised
 			r := inputProcess(os.Stdin)
 			r.filename = "os.Stdin"
 			ch <- r
 		}(ch)
 	} else {
 		for _, filename := range args {
-			tokens <- struct{}{}
+			tokens <- struct{}{}	// Acquire token
 			f, err := os.Open(filename)
 			if err != nil {
 				log.Println(err)
-				<-tokens
+				<-tokens	// Release token
 				continue
 			}
-			channel++
+			wg.Add(1)	// Wait for 1 goroutine
 			go func(f *os.File, filename string, ch chan Result) {
 				defer f.Close()
+				defer wg.Done()	 // goroutine is finised
 				r := inputProcess(f)
 				r.filename = filename
-				ch <- r
-				<-tokens
+				ch <- r		// Send data to channel
+				<-tokens	// Release token
 			}(f, filename, ch)
 		}
 	}
@@ -136,12 +139,15 @@ func main() {
 		flags.c, flags.w, flags.l = true, true, true
 	}
 
-	// Wait for goroutine to send output and print result
-	for i := 0; i < channel; i++ {
-		output := <-ch
-		if output.err != nil {
-			continue
-		}
-		PrintOutput(flags, output)
+	// Wait for all goroutine to finish and close the channel
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	// Receive data from channel
+	for out := range ch {
+		PrintOutput(flags, out)
 	}
+
 }

@@ -22,7 +22,7 @@ import (
 
 ***/
 
-var tokens = make(chan struct{}, 10)
+var tokens = make(chan struct{}, 10)         // For maximum 10 goroutine to run concurrently
 
 type Result struct {
 	filename                                   string
